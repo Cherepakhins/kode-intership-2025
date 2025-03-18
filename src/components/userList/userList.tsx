@@ -1,65 +1,63 @@
 import React, { useEffect, useState } from "react";
-import {
-  fetchAllUsers,
-  fetchUsersByDepartment,
-  fetchDynamicUsers,
-  fetchError500,
-} from "../../api/users";
+import { fetchAllUsers, fetchUsersByDepartment } from "../../api/users";
 
-const UserList: React.FC = () => {
-  const [users, setUsers] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
+interface UserListProps {
+  searchQuery: string;
+  department: string;
+  sortType: "alphabet" | "birthday";
+}
+
+interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  userTag: string;
+  department: string;
+}
+
+const UserList: React.FC<UserListProps> = ({
+  searchQuery,
+  department,
+  sortType,
+}) => {
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        const allUsers = await fetchAllUsers();
-        setUsers(allUsers.items);
-      } catch (err) {
-        setError("Failed to fetch users");
+        const data =
+          department === "all"
+            ? await fetchAllUsers()
+            : await fetchUsersByDepartment(department);
+        setUsers(data.items);
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
       }
     };
 
     loadUsers();
-  }, []);
+  }, [department]);
 
-  const handleDepartmentFetch = async (department: string) => {
-    try {
-      const departmentUsers = await fetchUsersByDepartment(department);
-      setUsers(departmentUsers.items);
-    } catch (err) {
-      setError(`Failed to fetch users in ${department} department`);
-    }
-  };
+  const filteredUsers = users.filter((user) => {
+    const fullName = `${user.firstName} ${user.lastName}`.toLowerCase();
+    const query = searchQuery.toLowerCase();
+    return (
+      fullName.includes(query) || user.userTag.toLowerCase().includes(query)
+    );
+  });
 
-  const handleDynamicFetch = async () => {
-    try {
-      const dynamicUsers = await fetchDynamicUsers();
-      setUsers(dynamicUsers.items);
-    } catch (err) {
-      setError("Failed to fetch dynamic users");
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (sortType === "alphabet") {
+      return a.firstName.localeCompare(b.firstName);
+    } else {
+      return 0;
     }
-  };
-
-  const handleErrorFetch = async () => {
-    try {
-      await fetchError500();
-    } catch (err) {
-      setError("Error 500 occurred");
-    }
-  };
+  });
 
   return (
     <div>
-      <h1>User List</h1>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <button onClick={() => handleDepartmentFetch("frontend")}>
-        Fetch Frontend Users
-      </button>
-      <button onClick={handleDynamicFetch}>Fetch Dynamic Users</button>
-      <button onClick={handleErrorFetch}>Trigger Error 500</button>
       <ul>
-        {users.map((user) => (
+        {sortedUsers.map((user) => (
           <li key={user.id}>
             {user.firstName} {user.lastName} - {user.userTag}
           </li>
